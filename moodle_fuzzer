@@ -1,0 +1,135 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+
+import requests
+import argparse
+import csv
+from bs4 import BeautifulSoup
+import signal
+import threading
+
+# Variable global para manejar la interrupción
+interrupted = False
+
+
+# Función de manejo de señales
+def signal_handler(signum, frame):
+    global interrupted
+    interrupted = True
+
+
+# Establecer la función de manejo de señales para SIGINT
+signal.signal(signal.SIGINT, signal_handler)
+
+
+# Función para obtener los datos de la página y parsear el HTML
+def obtener_datos(url, session):
+    cookies = {"MoodleSession": session}
+    response = requests.get(url, cookies=cookies)
+    soup = BeautifulSoup(response.text, "html.parser")
+
+    # Intentar encontrar y extraer los datos relevantes de la manera original
+    nombre = soup.find("title").text.split(":")[0].strip()
+
+    # Si el nombre es "Usuario", intentar la nueva manera
+    if nombre == "Usuario":
+        userpictures = soup.find_all("div", class_="userpicture")
+        if userpictures and len(userpictures) > 1:
+            img = userpictures[1].find("img")
+            if img and 'alt' in img.attrs:
+                nombre = img['alt']
+        if not nombre:
+            h3_tag = soup.find("h3")
+            if h3_tag:
+                nombre = h3_tag.text.strip()
+
+    try:
+        email = (
+            soup.find("dt", string="Dirección de correo:").find_next("a").text.strip()
+        )
+    except AttributeError:
+        email = "Correo no encontrado"
+
+    cursos = []
+    cursos_container = soup.find("h3", string="Detalles del curso")
+    if cursos_container:
+        cursos_ul = cursos_container.find_next("ul")
+        cursos = [li.text.strip() for li in cursos_ul.find_all("li")]
+
+    return nombre, email, cursos
+
+# Función para obtener datos para un solo ID
+def obtener_datos_para_id(id, url_base, session, datos):
+    url = url_base.replace("FUZZ", str(id))
+
+    try:
+        nombre, email, cursos = obtener_datos(url, session)
+        datos.append((id, nombre, email, cursos))
+        print(f"Obteniendo datos para ID {id}")
+    except Exception as e:
+        print(f"Error al obtener datos para ID {id}: {e}")
+
+
+# Función para escribir los datos en un archivo CSV
+def escribir_csv(datos, archivo):
+    # Ordenar los datos por ID antes de escribirlos
+    datos.sort(key=lambda x: x[0])
+
+    with open(archivo, "w", newline="", encoding="utf-8") as file:
+        writer = csv.writer(file)
+        writer.writerow(["ID", "Nombre", "Email", "Cursos"])
+        for id, nombre, email, cursos in datos:
+            writer.writerow([id, nombre, email, ", ".join(cursos)])
+
+
+# Función principal para iterar sobre los IDs y obtener los datos
+def obtener_datos_por_rango(url_base, session, rango):
+    ids = range(int(rango.split("-")[0]), int(rango.split("-")[1]) + 1)
+    datos = []
+
+    hilos = []
+    for id in ids:
+        if interrupted:
+            print("Interrupción detectada, terminando...")
+            break
+
+        hilo = threading.Thread(
+            target=obtener_datos_para_id, args=(id, url_base, session, datos)
+        )
+        hilo.start()
+        hilos.append(hilo)
+
+    # Esperar a que todos los hilos terminen
+    for hilo in hilos:
+        hilo.join()
+
+    return datos
+
+
+# Procesamiento de argumentos de línea de comandos
+parser = argparse.ArgumentParser(
+    description="Script para obtener datos de Moodle por ID"
+)
+parser.add_argument(
+    "-s",
+    "--session",
+    help="Valor de la cookie de sesión (MoodleSession)",
+    required=True,
+)
+parser.add_argument(
+    "-u", "--url", help="URL base con 'FUZZ' en lugar del ID", required=True
+)
+parser.add_argument(
+    "-i", "--id", help="Rango de números de ID (ej. 1-50)", required=True
+)
+parser.add_argument(
+    "-o",
+    "--output",
+    help="Nombre del archivo CSV de salida",
+    default="data.csv",
+)
+args = parser.parse_args()
+
+# Obtener datos y escribir en archivo CSV
+datos = obtener_datos_por_rango(args.url, args.session, args.id)
+escribir_csv(datos, args.output)
