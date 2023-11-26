@@ -28,4 +28,5 @@ For example, to scrape user data from IDs 1-50 on the Moodle instance at `https:
 ```
 
 ## Disclaimer
-This tool is intended for educational purposes only. Always obtain proper authorization before performing any kind of security testing.The author is not responsible for any misuse of this tool.
+This tool is intended for educational purposes only. Always obtain proper authorization before performing any kind of security testing.
+The author is not responsible for any misuse of this tool.
