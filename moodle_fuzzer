@@ -36,8 +36,8 @@ def obtener_datos(url, session):
         userpictures = soup.find_all("div", class_="userpicture")
         if userpictures and len(userpictures) > 1:
             img = userpictures[1].find("img")
-            if img and 'alt' in img.attrs:
-                nombre = img['alt']
+            if img and "alt" in img.attrs:
+                nombre = img["alt"]
         if not nombre:
             h3_tag = soup.find("h3")
             if h3_tag:
@@ -57,6 +57,7 @@ def obtener_datos(url, session):
         cursos = [li.text.strip() for li in cursos_ul.find_all("li")]
 
     return nombre, email, cursos
+
 
 # Función para obtener datos para un solo ID
 def obtener_datos_para_id(id, url_base, session, datos):
