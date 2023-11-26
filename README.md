@@ -24,7 +24,7 @@ Where:
 
 For example, to scrape user data from IDs 1-50 on the Moodle instance at `https://moodle.example.com`, you would run:
 ```
-./moodle_fuzzer -s MoodleSession=1234567890 -u https://moodle.example.com/user/view.php?id=FUZZ -i 1-50
+./moodle_fuzzer -s 1234567890 -u https://moodle.example.com/user/view.php?id=FUZZ -i 1-50
 ```
 
 ## Disclaimer
